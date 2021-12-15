@@ -1,5 +1,4 @@
 import random
-
 import tensorflow as tf
 import tensorflow_datasets as tfds
 from tensorflow.keras import Input, Model
@@ -11,11 +10,9 @@ seed = 53
 random.seed(seed)
 tf.random.set_seed(seed)
 
-print(tf.__version__)
+print('TensorFlow version = ' + tf.__version__)
 
-data = tfds.load('higgs', split='train')
-
-print(data.take(1))
+data = tfds.load('higgs', split='train', try_gcs=True)
 
 
 def reformat_element(elem):
@@ -30,13 +27,8 @@ def reformat_element(elem):
     return features, label
 
 
-# def convert_label(elem):
-
-
 data = data.map(reformat_element, num_parallel_calls=tf.data.AUTOTUNE)
 data = data.map(lambda x, y: (x, tf.cast(y, tf.int8)))
-
-print(data.take(1))
 
 DATASET_SIZE = data.cardinality().numpy()
 train_size = int(0.8 * DATASET_SIZE)
@@ -52,7 +44,7 @@ print(train.cardinality().numpy())
 print(validation.cardinality().numpy())
 print(test.cardinality().numpy())
 
-BATCH_SIZE = 512
+BATCH_SIZE = 1024
 train = train.batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
 validation = validation.batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
 test = test.batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
@@ -66,12 +58,17 @@ out1 = Dense(1, activation='sigmoid')(x)
 model = Model(inputs=[inp1], outputs=[out1])
 model.summary()
 
-model.compile(optimizer='adam',
+model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3),
               loss='bce',
               metrics=[tf.keras.metrics.BinaryAccuracy()])
 
-es = tf.keras.callbacks.EarlyStopping(patience=9, verbose=0, restore_best_weights=True)
+es = tf.keras.callbacks.EarlyStopping(patience=9, verbose=1, restore_best_weights=True)
 
-history = model.fit(train, verbose=1, epochs=500, validation_data=validation, callbacks=[es])
+history = model.fit(train, verbose=2, epochs=100, validation_data=validation, callbacks=[es])
 
 model.evaluate(test, verbose=1)
+
+'''
+ * baseline (28)  : loss: 0.6910 - binary_accuracy: 0.5302
+ * baseline (21)  :
+'''
